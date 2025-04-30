@@ -78,7 +78,7 @@ void displaySum(Dice[] allDice) {
   
   // show num
   // DEPTH_TEST MUST be disabled before drawing text
-  // otherwise the text will be hidden behind the dice
+  // otherwise the text will not be visible
   hint(DISABLE_DEPTH_TEST);
   text("Total Number: " + total, -45, 0);
   hint(ENABLE_DEPTH_TEST);

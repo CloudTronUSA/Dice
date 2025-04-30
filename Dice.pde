@@ -1,5 +1,18 @@
+/*
+ * Acknowledgement:
+ *
+ * Made with Processing Java Framework
+ * Processing Core library is licensed under GNU LGPL v2.1.
+ * Other parts (Processing Framework, Processing IDE) are licensed under GNU GPL v2.
+ * Official website: https://processing.org/
+ *
+ */
+
+/* File: Main.pde */
+// array of dice objects on the screen
 Dice[] dices = new Dice[6];
 
+// run once at start
 void setup() {
   size(800, 600, P3D);
   frameRate(60);
@@ -14,6 +27,7 @@ void setup() {
   }
 }
 
+// run once every frame
 void draw() {
   background(200);
   lights();
@@ -21,30 +35,19 @@ void draw() {
   // move the cam
   translate(width/2, height/2, 100);
   
-  boolean readyToDisplayNum = true;
-  for(Dice d : dices) {
+  // update all dices
+  for (Dice d : dices) {
     d.update();
-    if (d.isSpinning()) {
-      readyToDisplayNum = false;
-      break;
-    }
   }
-  
-  int totalNum = 0;
-  if (readyToDisplayNum) {
-    for (Dice d : dices)
-      totalNum += d.finalNumber;
-    
-    // show num
-    hint(DISABLE_DEPTH_TEST);
-    text("Total Number: " + totalNum, -45, 0);
-    hint(ENABLE_DEPTH_TEST);
-    println(totalNum);
-  }
+
+  // display the sum of all dices
+  displaySum(dices);
 }
 
+// listen to mouse pressed event
+// when mouse is pressed, attempt to spin the dices
 void mousePressed() {
-  // check if already spining
+  // check if any are spining
   boolean anySpinning = false;
   for(Dice d : dices) {
     if(d.isSpinning()) {
@@ -53,6 +56,7 @@ void mousePressed() {
     }
   }
 
+  // if none are spinning, start spinning
   if(!anySpinning) {
     for(Dice d : dices) {
       d.spin();
@@ -60,17 +64,39 @@ void mousePressed() {
   }
 }
 
-// dice
+// calculate & display sum of all dices
+void displaySum(Dice[] allDice) {
+  // sum up all the numbers
+  int total = 0;
+  for (Dice d : allDice) {
+    if (!d.isSpinning()) {
+      total += d.number();
+    } else {
+      return; // if any dice is spinning, don't show the number yet
+    }
+  }
+  
+  // show num
+  // DEPTH_TEST MUST be disabled before drawing text
+  // otherwise the text will be hidden behind the dice
+  hint(DISABLE_DEPTH_TEST);
+  text("Total Number: " + total, -45, 0);
+  hint(ENABLE_DEPTH_TEST);
+  println("Rolled Total Number: " + total);
+}
+
+/* File: Dice.pde */
+// dice class
 class Dice {
+  // basic transformation
   float x, y, z;
   float size;
-  
   float rotX, rotY, rotZ;
   
-  // expected rotation
+  // expected final rotation
   float targetRotX, targetRotY, targetRotZ;
   
-  // vel
+  // velocity
   float velX, velY, velZ;
   
   int spinCount;
@@ -78,6 +104,7 @@ class Dice {
   boolean spinning;
   int finalNumber;
   
+  // constructor
   Dice(float initX, float initY, float initZ, float initSize) {
     x = initX;
     y = initY;
@@ -90,17 +117,21 @@ class Dice {
     finalNumber = 1;
   }
   
-  void spin() {
-    rotX += random(TWO_PI);  // start spining at rand rot
+  // spin the dice
+  // setup the parameters, will do calc and render accordingly in update
+  public void spin() {
+    rotX += random(TWO_PI);  // start spining at random angle
     rotY += random(TWO_PI);
     
     int targetFace = (int)random(1,7);  // target face
-    numToRot(targetFace);
+    numToRot(targetFace); // map num to target rotation
     
     int extraSpins = 2;
+    // calc total change of rotation X, Y needed to get to target
     float changeX = shortestAngle(targetRotX - rotX) + extraSpins * TWO_PI;
     float changeY = shortestAngle(targetRotY - rotY) + extraSpins * TWO_PI;
     
+    // calc the velocity to reach the target in x frames
     velX = changeX / totalSpinFrames;
     velY = changeY / totalSpinFrames;
     
@@ -108,16 +139,20 @@ class Dice {
     spinning = true;
   }
   
-  void update() {
+  // update the dice, do calc and render
+  // this should be called every frame
+  public void update() {
     pushMatrix();
     translate(x, y, z);
     
+    // check if we are spinning
     if(spinning) {
-      // spin
+      // calc the new rotation
       rotX += velX;
       rotY += velY;
       rotZ += velZ;
       
+      // check if we are done spinning
       spinCount--;
       if(spinCount <= 0) {
         spinning = false;
@@ -125,61 +160,58 @@ class Dice {
       }
     }
     
+    // rotate the dice to the calculated rotation
     rotateX(rotX);
     rotateY(rotY);
     rotateZ(rotZ);
     
+    // draw the dice
     drawDice();
     
     popMatrix();
   }
   
   // getters
-  boolean isSpinning() {
-    return spinning;
-  }
+  public boolean isSpinning() {return spinning;}
+  public int number() {return finalNumber;}
   
-  int number() {
-    return finalNumber;
-  }
-  
-  // change of rot to get to an angle
-  float shortestAngle(float angle) {
+  // calc shortest way to get to a specific angle
+  private float shortestAngle(float angle) {
     angle = angle % TWO_PI;
     if (angle > PI)
         angle -= TWO_PI;
     return angle;
   }
   
-  // map num to rotation
-  void numToRot(int num) {
+  // map (target) num to rotation
+  private void numToRot(int num) {
     switch(num) {
-      case 1: // front
+      case 1: // front: number 1
         targetRotX = 0;
         targetRotY = 0;
         targetRotZ = 0;
         break;
-      case 2: // top
+      case 2: // top: number 2
         targetRotX = -HALF_PI;
         targetRotY = 0;
         targetRotZ = 0;
         break;
-      case 3: // right
+      case 3: // right: number 3
         targetRotX = 0;
         targetRotY = -HALF_PI;
         targetRotZ = 0;
         break;
-      case 4: // back
+      case 4: // back: number 4
         targetRotX = 0;
         targetRotY = HALF_PI;
         targetRotZ = 0;
         break;
-      case 5: // bottom
+      case 5: // bottom: number 5
         targetRotX = HALF_PI;
         targetRotY = 0;
         targetRotZ = 0;
         break;
-      case 6: // back
+      case 6: // back: number 6
         targetRotX = 0;
         targetRotY = PI;
         targetRotZ = 0;
@@ -187,8 +219,8 @@ class Dice {
     }
   }
   
-  // map rot to num
-  int rotToNum() {
+  // map rot back to num
+  private int rotToNum() {
     if(targetRotX == 0 && targetRotY == 0 && targetRotZ == 0) {
       return 1;
     }
@@ -210,7 +242,8 @@ class Dice {
     return 1;
   }
   
-  void drawDice() {
+  // draw the dice
+  private void drawDice() {
     noStroke();
     fill(255);
     box(size);
@@ -252,7 +285,8 @@ class Dice {
     popMatrix();
   }
   
-  void drawDots(int num) {
+  // draw the dots on the dice
+  private void drawDots(int num) {
     fill(0);
     float offset = size / 4;
     float r = size / 10;
